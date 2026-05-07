@@ -1,5 +1,6 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
+from typing import Optional
 from app.services.dataframe_store import dataframe_store
 from app.services.schema_extractor import extract_schema, schema_to_text
 from app.services.llm_client import analyze_with_llm
@@ -11,6 +12,7 @@ router = APIRouter()
 
 class AnalyzeRequest(BaseModel):
     file_id: str
+    user_prompt: Optional[str] = None
 
 
 @router.post("/analyze", response_model=AnalysisResponse)
@@ -25,7 +27,7 @@ async def analyze_file(request: AnalyzeRequest):
         column_names = list(df.columns)
 
         logger.info(f"Analyzing file_id={request.file_id}, cols={column_names[:5]}...")
-        result = analyze_with_llm(schema_text, column_names)
+        result = analyze_with_llm(schema_text, column_names, user_prompt=request.user_prompt)
         result.file_id = request.file_id
         return result
 

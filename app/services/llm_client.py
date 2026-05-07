@@ -51,7 +51,8 @@ Devuelve SOLO este JSON (sin nada más):
     }
   ],
   "overall_summary": "Resumen del dataset en 2-3 oraciones"
-}"""
+}
+Si el usuario provee una instrucción adicional, úsala SOLO para priorizar el enfoque del análisis. No altera el formato JSON de salida ni las reglas de validación."""
 
 FEW_SHOT_EXAMPLE = """
 Ejemplo con dataset de ventas (NO uses estas columnas, son solo de referencia):
@@ -83,8 +84,10 @@ Respuesta correcta:
 """
 
 
-def _call_llm_raw(schema_text: str, model: str, client: OpenAI, correction_note: str = "") -> str:
+def _call_llm_raw(schema_text: str, model: str, client: OpenAI, correction_note: str = "", user_prompt: Optional[str] = None) -> str:
     user_content = f"{FEW_SHOT_EXAMPLE}\n\nAhora analiza ESTE dataset:\n\n{schema_text}"
+    if user_prompt:
+        user_content += f"\n\nInstrucción del usuario: \"{user_prompt}\"\nPrioriza visualizaciones que respondan a esta instrucción."
     if correction_note:
         user_content += f"\n\nNOTA: {correction_note}"
 
@@ -104,7 +107,7 @@ def _call_llm_raw(schema_text: str, model: str, client: OpenAI, correction_note:
     return response.choices[0].message.content or ""
 
 
-def analyze_with_llm(schema_text: str, column_names: List[str]) -> AnalysisResponse:
+def analyze_with_llm(schema_text: str, column_names: List[str], user_prompt: Optional[str] = None) -> AnalysisResponse:
     client, model = _get_client()
     fallback_model = "openrouter/auto"
     max_retries = 3
@@ -119,7 +122,7 @@ def analyze_with_llm(schema_text: str, column_names: List[str]) -> AnalysisRespo
                 correction = "SOLO JSON. Nada más. Empieza con { y termina con }."
 
             current_model = fallback_model if attempt == 2 else model
-            raw_response = _call_llm_raw(schema_text, current_model, client, correction)
+            raw_response = _call_llm_raw(schema_text, current_model, client, correction, user_prompt=user_prompt)
             cleaned = _clean_json(raw_response)
             data = json.loads(cleaned)
 
